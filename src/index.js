@@ -137,7 +137,7 @@ client.once("clientReady", async () => {
 
 // Handle button interactions
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isButton()) return;
+  if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
   
   // Create ticket button
   if (interaction.customId === "create_ticket") {
@@ -355,7 +355,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Auto-react to suggestions
+// Handle suggestions
 client.on("messageCreate", async (message) => {
   // Ignore bot messages
   if (message.author.bot) return;
@@ -363,10 +363,39 @@ client.on("messageCreate", async (message) => {
   // Check if message is in suggestions channel
   if (message.channel.id === suggestionsChannelId) {
     try {
-      await message.react("👍");
-      await message.react("👎");
+      // Delete the original message
+      await message.delete();
+      
+      // Create embed with suggestion
+      const suggestionEmbed = new EmbedBuilder()
+        .setColor(0xFFD700)
+        .setTitle("💡 Nueva Sugerencia")
+        .setDescription(message.content)
+        .setAuthor({ 
+          name: message.author.tag,
+          iconURL: message.author.displayAvatarURL({ size: 256 })
+        })
+        .setFooter({ 
+          text: message.guild.name,
+          iconURL: message.guild.iconURL()
+        })
+        .setTimestamp();
+      
+      // Add image if the message contains an attachment
+      if (message.attachments.size > 0) {
+        const attachment = message.attachments.first();
+        if (attachment.contentType && attachment.contentType.startsWith("image/")) {
+          suggestionEmbed.setImage(attachment.url);
+        }
+      }
+      
+      // Send embed and add reactions
+      const suggestionMessage = await message.channel.send({ embeds: [suggestionEmbed] });
+      await suggestionMessage.react("👍");
+      await suggestionMessage.react("👎");
+      
     } catch (error) {
-      console.error("Error adding reactions to suggestion:", error);
+      console.error("Error handling suggestion:", error);
     }
   }
 });
