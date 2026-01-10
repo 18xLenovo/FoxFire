@@ -331,7 +331,14 @@ client.on("interactionCreate", async (interaction) => {
     try {
       const channel = interaction.channel;
       
-      if (!channel.name.startsWith("ticket-")) {
+      // Check if it's a ticket channel (any of the prefixes)
+      const isTicket = channel.name.startsWith("ticket-") || 
+                       channel.name.startsWith("tech-") ||
+                       channel.name.startsWith("question-") ||
+                       channel.name.startsWith("report-") ||
+                       channel.name.startsWith("other-");
+      
+      if (!isTicket) {
         await interaction.editReply({ 
           content: "❌ Este comando solo funciona en canales de tickets.",
           ephemeral: true 
@@ -343,7 +350,7 @@ client.on("interactionCreate", async (interaction) => {
       await channel.setParent(archiveCategoryId);
       await channel.setName(`archived-${channel.name}`);
       
-      // Lock the channel
+      // Lock the channel for everyone except staff
       await channel.permissionOverwrites.edit(interaction.guild.id, {
         SendMessages: false,
       });
