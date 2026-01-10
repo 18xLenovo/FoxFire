@@ -10,7 +10,8 @@ import {
   ButtonStyle, 
   PermissionFlagsBits,
   StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder
+  StringSelectMenuOptionBuilder,
+  SlashCommandBuilder
 } from "discord.js";
 
 dotenv.config();
@@ -40,6 +41,29 @@ const client = new Client({
 
 client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user.tag}`);
+  
+  // Register slash commands
+  const guild = client.guilds.cache.first();
+  if (guild) {
+    try {
+      const clearCommand = new SlashCommandBuilder()
+        .setName("clear")
+        .setDescription("Elimina un número específico de mensajes del canal")
+        .addIntegerOption(option =>
+          option
+            .setName("cantidad")
+            .setDescription("Cantidad de mensajes a eliminar (1-100)")
+            .setRequired(true)
+            .setMinValue(1)
+            .setMaxValue(100)
+        );
+      
+      await guild.commands.create(clearCommand);
+      console.log("✅ Comando /clear registrado");
+    } catch (error) {
+      console.error("Error registering slash commands:", error);
+    }
+  }
   
   // Send test welcome message
   if (welcomeChannelId) {
@@ -135,8 +159,40 @@ client.once("clientReady", async () => {
   }
 });
 
-// Handle button interactions
+// Handle button interactions and slash commands
 client.on("interactionCreate", async (interaction) => {
+  // Handle slash commands
+  if (interaction.isCommand()) {
+    if (interaction.commandName === "clear") {
+      await interaction.deferReply({ ephemeral: true });
+      
+      try {
+        // Check if user has permission to manage messages
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+          await interaction.editReply({
+            content: "❌ No tienes permisos para usar este comando.",
+            ephemeral: true
+          });
+          return;
+        }
+        
+        const cantidad = interaction.options.getInteger("cantidad");
+        const deletedMessages = await interaction.channel.bulkDelete(cantidad, true);
+        
+        await interaction.editReply({
+          content: `✅ Se eliminaron ${deletedMessages.size} mensajes del canal.`,
+          ephemeral: true
+        });
+      } catch (error) {
+        console.error("Error executing clear command:", error);
+        await interaction.editReply({
+          content: "❌ Hubo un error al eliminar los mensajes.",
+          ephemeral: true
+        });
+      }
+    }
+  }
+  
   if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
   
   // Create ticket button
